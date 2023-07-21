@@ -1,0 +1,4 @@
+app/var/
+app/vendor/
+.idea/
+docker/database/data/

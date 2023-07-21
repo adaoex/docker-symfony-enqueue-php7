@@ -1,0 +1,31 @@
+framework:
+    messenger:
+        # reset services after consuming messages
+        reset_on_message: true
+
+        # Uncomment this (and the failed transport below) to send failed messages to this transport for later handling.
+        # failure_transport: failed
+
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            # async: '%env(MESSENGER_TRANSPORT_DSN)%'
+            # failed: 'doctrine://default?queue_name=failed'
+            # sync: 'sync://'
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    #use_notify: true
+                    #check_delayed_interval: 60000
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+            failed: 'doctrine://default?queue_name=failed'
+            # sync: 'sync://'
+            kafka:
+                dsn: 'enqueue://default?topic[name]=pdde-emails&queue[name]=pdde-emails'
+
+        routing:
+            # Route your messages to the transports
+            # 'App\Message\YourMessage': async
+            'App\Message\SmsNotification': async
+            'App\Message\SmsKafkaNotification': kafka

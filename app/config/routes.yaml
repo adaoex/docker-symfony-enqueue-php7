@@ -1,0 +1,11 @@
+kafka:
+    path: /kafka
+    controller: App\Controller\DefaultController::kafka
+
+fila:
+    path: /fila
+    controller: App\Controller\DefaultController::fila
+
+php:
+    path: /php
+    controller: App\Controller\DefaultController::php

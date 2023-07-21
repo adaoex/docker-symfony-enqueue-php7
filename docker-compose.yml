@@ -1,0 +1,109 @@
+version: '3'
+
+services:
+  database:
+    image: mariadb
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${DATABASE_NAME}
+      - MYSQL_USER=${DATABASE_USER}
+      - MYSQL_PASSWORD=${DATABASE_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD}
+    ports:
+      - "3309:3306"
+    volumes:
+      - ./docker/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/database/data:/var/lib/mysql
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+
+  phpmyadmin:
+        depends_on:
+            - database
+        image: phpmyadmin
+        links:
+          - database
+        restart: always
+        ports:
+            - 8080:80
+        environment:
+            PMA_HOST: database
+            PMA_PORT: 3306
+            PMA_ARBITRARY: 1
+
+  php-fpm:
+    build:
+      context: ./docker/php-fpm
+      dockerfile: Dockerfile
+    depends_on:
+      - database
+    environment:
+      - APP_ENV=${APP_ENV}
+      - APP_SECRET=${APP_SECRET}
+      - DATABASE_URL=mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@database:3306/${DATABASE_NAME}?serverVersion=5.7
+      - KAFKA_BROKER_LIST=kafka:29092
+      - KAFKA_AUTO_OFFSET_RESET=beginning
+      - KAFKA_GROUP_ID=email
+    volumes:
+      - ./app:/var/www
+      - ./docker/supervisor:/etc/supervisor.d/
+
+  nginx:
+    build:
+      context: ./docker/nginx
+    volumes:
+      - ./app:/var/www
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/sites/:/etc/nginx/sites-available
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d
+      - ./docker/logs:/var/log
+    depends_on:
+      - php-fpm
+    ports:
+      - "8063:80"
+      - "4463:443"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ~/docker/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/docker/logs/rabbitmq/log/:/var/log/rabbitmq
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.1
+    hostname: zookeeper
+    container_name: zookeeper_sisalfa
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-server:5.4.1
+    hostname: kafka
+    container_name: kafka_sisalfa
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka:29092
+      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
