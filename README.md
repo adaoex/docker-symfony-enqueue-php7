@@ -36,11 +36,17 @@ docker compose exec -it kafka bash
 kafka-topics --bootstrap-server localhost:9092 --create --topic pdde-emails --partitions 3 --replication-factor 1
 ```
 
-
 ### Administração do RabbitMQ
 
 Administração: `http://localhost:15672/`
 
+### Enviando requisições para filas
+
+Ações configuradas na [DefaultController](app/src/Controller/DefaultController.php)
+
+RabbitMQ: `http://localhost:8083/fila`
+
+Kafka: `http://localhost:8083/kafka`
 
 # Passos usados na criação do projeto
 
